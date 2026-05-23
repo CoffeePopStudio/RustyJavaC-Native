@@ -1,0 +1,16 @@
+[package]
+name = "rustyjavac-native"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+description = "Rust FFI bindings for RustyJavaC — compiles to a native library (.dll/.so/.dylib) for JVM integration via Panama FFM or JNA"
+repository = "https://github.com/CoffeePopStudio/RustyJavaC-Native"
+keywords = ["java", "compiler", "ffi", "native", "rustyjavac"]
+categories = ["compilers", "external-ffi-bindings"]
+authors = ["CoffeePopStudio"]
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+javac-compiler = { git = "https://github.com/oneachina/Rusty-JavaC.git" }
