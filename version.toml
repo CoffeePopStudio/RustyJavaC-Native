@@ -1,0 +1,26 @@
+[version]
+native = "0.1.0"
+
+[platforms.windows-x86_64]
+name = "windows-x86_64"
+lib = "rustyjavac_native.dll"
+url = "https://github.com/CoffeePopStudio/RustyJavaC-Native/releases/download/v0.1.0/rustyjavac_native-windows-x86_64.dll"
+sha256 = ""
+
+[platforms.linux-x86_64]
+name = "linux-x86_64"
+lib = "rustyjavac_native.so"
+url = "https://github.com/CoffeePopStudio/RustyJavaC-Native/releases/download/v0.1.0/rustyjavac_native-linux-x86_64.so"
+sha256 = ""
+
+[platforms.macos-x86_64]
+name = "macos-x86_64"
+lib = "rustyjavac_native.dylib"
+url = "https://github.com/CoffeePopStudio/RustyJavaC-Native/releases/download/v0.1.0/rustyjavac_native-macos-x86_64.dylib"
+sha256 = ""
+
+[platforms.macos-aarch64]
+name = "macos-aarch64"
+lib = "rustyjavac_native.dylib"
+url = "https://github.com/CoffeePopStudio/RustyJavaC-Native/releases/download/v0.1.0/rustyjavac_native-macos-aarch64.dylib"
+sha256 = ""
