@@ -90,50 +90,49 @@ jobs:
         id: changelog
         shell: bash
         run: |
-          TAG_NAME="${{ github.ref_name }}"
+          set -e
+          TAG_NAME="${GITHUB_REF_NAME}"
           PREV_TAG=$(git tag --sort=-creatordate | grep -v "^$TAG_NAME$" | head -1)
 
           if [ -z "$PREV_TAG" ]; then
-            RANGE="HEAD"
+            COMMITS=($(git log --pretty=format:"%s %h" --no-merges))
           else
-            RANGE="$PREV_TAG..HEAD"
+            COMMITS=($(git log "$PREV_TAG..HEAD" --pretty=format:"%s %h" --no-merges))
           fi
 
           echo "## Changes" > /tmp/changelog.md
           echo "" >> /tmp/changelog.md
 
-          git log "$RANGE" --pretty=format:"%s %h" --no-merges | while IFS= read -r line; do
-            message="${line% *}"
-            hash="${line##* }"
+          if [ ${#COMMITS[@]} -eq 0 ]; then
+            echo "_no new commits since last tag_" >> /tmp/changelog.md
+          else
+            for line in "${COMMITS[@]}"; do
+              message="${line% *}"
+              hash="${line##* }"
 
-            category=""
-            if echo "$message" | grep -qE '^feat[(:]'; then
-              category="🚀 feat"
-            elif echo "$message" | grep -qE '^fix[(:]'; then
-              category="🐛 fix"
-            elif echo "$message" | grep -qE '^perf[(:]'; then
-              category="⚡ perf"
-            elif echo "$message" | grep -qE '^refactor[(:]'; then
-              category="♻️  refactor"
-            elif echo "$message" | grep -qE '^test[(:]'; then
-              category="✅ test"
-            elif echo "$message" | grep -qE '^docs[(:]'; then
-              category="📝 docs"
-            elif echo "$message" | grep -qE '^chore[(:]'; then
-              category="🔧 chore"
-            elif echo "$message" | grep -qE '^ci[(:]'; then
-              category="👷 ci"
-            else
-              category="📦 other"
-            fi
+              category=""
+              case "$message" in
+                feat*)   category="🚀 feat" ;;
+                fix*)    category="🐛 fix" ;;
+                perf*)   category="⚡ perf" ;;
+                refactor*) category="♻️  refactor" ;;
+                test*)   category="✅ test" ;;
+                docs*)   category="📝 docs" ;;
+                chore*)  category="🔧 chore" ;;
+                ci*)     category="👷 ci" ;;
+                *)       category="📦 other" ;;
+              esac
 
-            clean_msg=$(echo "$message" | sed -E 's/^[a-z]+(\([^)]*\))?: ?//')
-            echo "- **$category**: $clean_msg (\`$hash\`)" >> /tmp/changelog.md
-          done
+              clean_msg=$(echo "$message" | sed -E 's/^[a-z]+(\([^)]*\))?: ?//')
+              echo "- **$category**: $clean_msg (\`$hash\`)" >> /tmp/changelog.md
+            done
+          fi
 
-          echo "body<<EOF" >> "$GITHUB_OUTPUT"
-          cat /tmp/changelog.md >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
+          {
+            echo "body<<EOF"
+            cat /tmp/changelog.md
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
   release:
     name: Create GitHub Release
