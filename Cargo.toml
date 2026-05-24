@@ -13,4 +13,4 @@ authors = ["CoffeePopStudio"]
 crate-type = ["cdylib"]
 
 [dependencies]
-javac-compiler = { git = "https://github.com/oneachina/Rusty-JavaC.git" }
+rusty-javac = "0.2.0"
