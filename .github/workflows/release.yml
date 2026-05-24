@@ -1,0 +1,157 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.target }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: windows-x86_64
+            target: x86_64-pc-windows-msvc
+            os: windows-latest
+            lib: rustyjavac_native.dll
+
+          - name: linux-x86_64
+            target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            lib: rustyjavac_native.so
+
+          - name: macos-x86_64
+            target: x86_64-apple-darwin
+            os: macos-13
+            lib: rustyjavac_native.dylib
+
+          - name: macos-aarch64
+            target: aarch64-apple-darwin
+            os: macos-latest
+            lib: rustyjavac_native.dylib
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Build
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Rename artifact
+        shell: bash
+        run: |
+          cp target/${{ matrix.target }}/release/${{ matrix.lib }} \
+             ${{ matrix.lib }}
+
+      - name: Generate SHA-256
+        shell: bash
+        run: |
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            certutil -hashfile ${{ matrix.lib }} SHA256 | grep -E '^[a-fA-F0-9]{64}$' | tr '[:upper:]' '[:lower:]' > ${{ matrix.lib }}.sha256
+          else
+            shasum -a 256 ${{ matrix.lib }} | awk '{print $1}' > ${{ matrix.lib }}.sha256
+          fi
+          echo "sha256=$(cat ${{ matrix.lib }}.sha256)" >> $GITHUB_OUTPUT
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: |
+            ${{ matrix.lib }}
+            ${{ matrix.lib }}.sha256
+          if-no-files-found: error
+
+  changelog:
+    name: Generate changelog
+    runs-on: ubuntu-latest
+    outputs:
+      body: ${{ steps.changelog.outputs.body }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate changelog
+        id: changelog
+        shell: bash
+        run: |
+          TAG_NAME="${{ github.ref_name }}"
+          PREV_TAG=$(git tag --sort=-creatordate | grep -v "^$TAG_NAME$" | head -1)
+
+          if [ -z "$PREV_TAG" ]; then
+            RANGE="HEAD"
+          else
+            RANGE="$PREV_TAG..HEAD"
+          fi
+
+          echo "## Changes" > /tmp/changelog.md
+          echo "" >> /tmp/changelog.md
+
+          git log "$RANGE" --pretty=format:"%s %h" --no-merges | while IFS= read -r line; do
+            message="${line% *}"
+            hash="${line##* }"
+
+            category=""
+            if echo "$message" | grep -qE '^feat[(:]'; then
+              category="🚀 feat"
+            elif echo "$message" | grep -qE '^fix[(:]'; then
+              category="🐛 fix"
+            elif echo "$message" | grep -qE '^perf[(:]'; then
+              category="⚡ perf"
+            elif echo "$message" | grep -qE '^refactor[(:]'; then
+              category="♻️  refactor"
+            elif echo "$message" | grep -qE '^test[(:]'; then
+              category="✅ test"
+            elif echo "$message" | grep -qE '^docs[(:]'; then
+              category="📝 docs"
+            elif echo "$message" | grep -qE '^chore[(:]'; then
+              category="🔧 chore"
+            elif echo "$message" | grep -qE '^ci[(:]'; then
+              category="👷 ci"
+            else
+              category="📦 other"
+            fi
+
+            clean_msg=$(echo "$message" | sed -E 's/^[a-z]+(\([^)]*\))?: ?//')
+            echo "- **$category**: $clean_msg (\`$hash\`)" >> /tmp/changelog.md
+          done
+
+          echo "body<<EOF" >> "$GITHUB_OUTPUT"
+          cat /tmp/changelog.md >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+  release:
+    name: Create GitHub Release
+    needs: [build, changelog]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: "*"
+          path: artifacts
+
+      - name: Show artifacts
+        run: ls -laR artifacts/
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          body: ${{ needs.changelog.outputs.body }}
+          files: |
+            artifacts/**/rustyjavac_native.dll
+            artifacts/**/rustyjavac_native.so
+            artifacts/**/rustyjavac_native.dylib
+          fail_on_unmatched_files: true
+          generate_release_notes: false
