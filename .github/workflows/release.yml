@@ -26,7 +26,7 @@ jobs:
 
           - name: macos-x86_64
             target: x86_64-apple-darwin
-            os: macos-13
+            os: macos-latest
             lib: rustyjavac_native.dylib
 
           - name: macos-aarch64
@@ -48,8 +48,14 @@ jobs:
       - name: Rename artifact
         shell: bash
         run: |
-          cp target/${{ matrix.target }}/release/${{ matrix.lib }} \
-             ${{ matrix.lib }}
+          src=$(find target/${{ matrix.target }}/release -maxdepth 1 -name "*rustyjavac_native*" \( -name "*.so" -o -name "*.dylib" -o -name "*.dll" \) | head -1)
+          if [ ! -f "$src" ]; then
+            echo "ERROR: built library not found. Listing release dir:"
+            ls -la target/${{ matrix.target }}/release/*.so target/${{ matrix.target }}/release/*.dylib target/${{ matrix.target }}/release/*.dll 2>/dev/null || true
+            exit 1
+          fi
+          echo "Found: $src"
+          cp "$src" ${{ matrix.lib }}
 
       - name: Generate SHA-256
         shell: bash
