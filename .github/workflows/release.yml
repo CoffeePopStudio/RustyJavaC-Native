@@ -90,43 +90,49 @@ jobs:
         id: changelog
         shell: bash
         run: |
-          set -e
+          set -ex
           TAG_NAME="${GITHUB_REF_NAME}"
-          PREV_TAG=$(git tag --sort=-creatordate | grep -v "^$TAG_NAME$" | head -1)
+          echo "tag=$TAG_NAME"
+          PREV_TAG=$(git tag --sort=-creatordate | grep -v "^$TAG_NAME$" | head -1 || true)
+          echo "prev_tag=${PREV_TAG:-<none>}"
 
-          if [ -z "$PREV_TAG" ]; then
-            COMMITS=($(git log --pretty=format:"%s %h" --no-merges))
-          else
-            COMMITS=($(git log "$PREV_TAG..HEAD" --pretty=format:"%s %h" --no-merges))
-          fi
+          RANGE="${PREV_TAG:+$PREV_TAG..HEAD}"
+          RANGE="${RANGE:-HEAD}"
+          echo "range=$RANGE"
 
           echo "## Changes" > /tmp/changelog.md
           echo "" >> /tmp/changelog.md
 
-          if [ ${#COMMITS[@]} -eq 0 ]; then
+          has_commits=false
+          while IFS= read -r line; do
+            has_commits=true
+            message="${line% *}"
+            hash="${line##* }"
+            echo "  commit: $message ($hash)"
+
+            case "$message" in
+              feat*)   emoji="🚀 feat" ;;
+              fix*)    emoji="🐛 fix" ;;
+              perf*)   emoji="⚡ perf" ;;
+              refactor*) emoji="♻️  refactor" ;;
+              test*)   emoji="✅ test" ;;
+              docs*)   emoji="📝 docs" ;;
+              chore*)  emoji="🔧 chore" ;;
+              ci*)     emoji="👷 ci" ;;
+              *)       emoji="📦 other" ;;
+            esac
+
+            clean_msg=$(echo "$message" | sed -E 's/^[a-z]+(\([^)]*\))?: ?//')
+            echo "- **$emoji**: $clean_msg (\`$hash\`)" >> /tmp/changelog.md
+          done < <(git log "$RANGE" --pretty=format:"%s %h" --no-merges || true)
+
+          if [ "$has_commits" = false ]; then
             echo "_no new commits since last tag_" >> /tmp/changelog.md
-          else
-            for line in "${COMMITS[@]}"; do
-              message="${line% *}"
-              hash="${line##* }"
-
-              category=""
-              case "$message" in
-                feat*)   category="🚀 feat" ;;
-                fix*)    category="🐛 fix" ;;
-                perf*)   category="⚡ perf" ;;
-                refactor*) category="♻️  refactor" ;;
-                test*)   category="✅ test" ;;
-                docs*)   category="📝 docs" ;;
-                chore*)  category="🔧 chore" ;;
-                ci*)     category="👷 ci" ;;
-                *)       category="📦 other" ;;
-              esac
-
-              clean_msg=$(echo "$message" | sed -E 's/^[a-z]+(\([^)]*\))?: ?//')
-              echo "- **$category**: $clean_msg (\`$hash\`)" >> /tmp/changelog.md
-            done
           fi
+
+          echo "--- changelog ---"
+          cat /tmp/changelog.md
+          echo "--- end ---"
 
           {
             echo "body<<EOF"
