@@ -1,7 +1,7 @@
 use std::ffi::{c_char, c_int, CStr};
 
-use javac_compiler::config::CompilerConfig;
-use javac_compiler::pipeline::compile;
+use rusty_javac::config::CompilerConfig;
+use rusty_javac::pipeline::compile;
 
 #[unsafe(no_mangle)]
 pub extern "C" fn rustyjavac_compile(
