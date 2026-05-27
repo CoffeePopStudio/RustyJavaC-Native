@@ -1,8 +1,4 @@
 # RustyJavaC Native
-
-> [!WARNING]
-> This project is still under heavy development. RustyJavaC itself is not yet a complete Java compiler.
-
 Rust FFI bindings for [Rusty-JavaC](https://github.com/Eatgrapes/Rusty-JavaC). Compiles to a native shared library (`.dll` / `.so` / `.dylib`) for JVM integration via [Panama FFM](https://openjdk.org/jeps/454) or JNA.
 
 ## Quick Start
